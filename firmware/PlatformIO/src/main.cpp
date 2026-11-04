@@ -4,14 +4,14 @@
 #include <PubSubClient.h>
 
 // ================= KONFIGURASI WIFI & MQTT =================
-const char* ssid        = "bakayarou";
-const char* password    = "raja12345";
-const char* mqtt_server = "192.168.137.1"; // IP Address Broker/Laptop
-const int   mqtt_port   = 1883;
+const char* ssid        = "bakayarou"; //Put your wifi ssd here
+const char* password    = "raja12345"; //The wifi pasword here
+const char* mqtt_server = "192.168.137.1"; // The mqtt server here or ur ip if using local broker
+const int   mqtt_port   = 1883; //mqtt port here gila english gua :v
 
 // Kredensial Autentikasi Broker MQTT
-const char* mqtt_user   = "rajapens";     // Ganti sesuai username broker MQTT Anda
-const char* mqtt_pass   = "raja54321";     // Ganti sesuai password broker MQTT Anda
+const char* mqtt_user   = "";     // Ganti sesuai username broker MQTT Anda ato kosongin kalo ngga pakai
+const char* mqtt_pass   = "";     // Ganti sesuai password broker MQTT Anda ato kosongin kalo ngga pakai
 
 // ---------------- TOPIK TELEMETRI DATA SENSOR (Publish) ----------------
 const char* topic_suhu         = "esp32gacor/monitoring/suhu";
