@@ -1,0 +1,1397 @@
+[
+    {
+        "id": "tab_elka_catppuccin",
+        "type": "tab",
+        "label": "ELKA PENS - ESP32 Command Center (Catppuccin)",
+        "disabled": false,
+        "info": "Dashboard 2.0 Modular Per-Sensor dengan Tema Catppuccin Mocha",
+        "env": []
+    },
+    {
+        "id": "tpl_catppuccin_css",
+        "type": "ui-template",
+        "z": "tab_elka_catppuccin",
+        "group": "",
+        "page": "",
+        "ui": "c94615b4ff7ffe30",
+        "name": "Catppuccin Mocha Global CSS",
+        "order": 0,
+        "width": 0,
+        "height": 0,
+        "head": "",
+        "format": "/* Latar belakang utama Catppuccin Crust -> Mantle */\n.v-main {\n    background: radial-gradient(circle at top, #1e1e2e 0%, #11111b 100%) !important;\n    color: #cdd6f4 !important;\n}\n\n/* Kartu per Sensor (Catppuccin Base & Surface0) */\n.nrdb-ui-group .v-card {\n    background: linear-gradient(145deg, rgba(30, 30, 46, 0.96), rgba(24, 24, 37, 0.96)) !important;\n    border: 1px solid rgba(203, 166, 247, 0.28) !important;\n    border-radius: 16px !important;\n    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45) !important;\n    padding: 8px !important;\n    color: #cdd6f4 !important;\n}\n\n/* Judul Kartu Sensor (Catppuccin Mauve) */\n.nrdb-ui-group .v-card-title {\n    color: #cba6f7 !important;\n    font-size: 1.02rem !important;\n    font-weight: 800 !important;\n    letter-spacing: 0.6px !important;\n    text-transform: uppercase !important;\n    border-bottom: 1px solid rgba(203, 166, 247, 0.22) !important;\n    padding-bottom: 10px !important;\n    margin-bottom: 10px !important;\n}\n\n/* Header Bar Atas */\n.v-app-bar {\n    background: linear-gradient(90deg, #181825 0%, #313244 100%) !important;\n    border-bottom: 1px solid rgba(203, 166, 247, 0.4) !important;\n    color: #cdd6f4 !important;\n}\n.v-app-bar-title {\n    color: #cba6f7 !important;\n    font-weight: 800 !important;\n    letter-spacing: 0.5px !important;\n}\n\n/* Box Widget Text, Switch & Slider (Catppuccin Surface0) */\n.nrdb-ui-text, .nrdb-ui-switch, .nrdb-ui-slider {\n    background: rgba(49, 50, 68, 0.55) !important;\n    border: 1px solid rgba(180, 190, 254, 0.16) !important;\n    border-radius: 10px !important;\n    padding: 6px 12px !important;\n}\n.nrdb-ui-switch:hover {\n    border-color: rgba(203, 166, 247, 0.6) !important;\n    background: rgba(69, 71, 90, 0.75) !important;\n}\n.nrdb-ui-text-label, .nrdb-ui-switch label, .v-label {\n    color: #bac2de !important;\n    font-weight: 600 !important;\n    font-size: 0.92rem !important;\n    opacity: 1 !important;\n}\n.nrdb-ui-text-value {\n    color: #cdd6f4 !important;\n    font-weight: 800 !important;\n    font-size: 0.98rem !important;\n}\n\n/* Teks angka dalam Gauge */\n.nrdb-ui-gauge text {\n    fill: #cdd6f4 !important;\n    font-weight: 700 !important;\n}",
+        "storeOutMessages": true,
+        "passthru": true,
+        "resendOnRefresh": true,
+        "templateScope": "site:style",
+        "className": "",
+        "x": 200,
+        "y": 80,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "mqtt_in_monitoring",
+        "type": "mqtt in",
+        "z": "tab_elka_catppuccin",
+        "name": "Sub Semua Monitoring ESP32",
+        "topic": "esp32gacor/monitoring/#",
+        "qos": "0",
+        "datatype": "utf8",
+        "broker": "broker_esp32_elka",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 140,
+        "y": 360,
+        "wires": [
+            [
+                "fn_router_catppuccin"
+            ]
+        ]
+    },
+    {
+        "id": "fn_router_catppuccin",
+        "type": "function",
+        "z": "tab_elka_catppuccin",
+        "name": "Router Telemetri, Status & Alert",
+        "func": "const t = msg.topic;\nconst val = parseFloat(msg.payload);\nif (isNaN(val)) return null;\n\nfunction formatSensorStatus(code) {\n    if (code === 1) return '🟢 ONLINE (Normal)';\n    if (code === 0) return '⚪ STANDBY (Dimatikan)';\n    return '🔴 OFFLINE (Error / Lepas)';\n}\n\n// 16 Outputs:\n// 0: suhu (gauge), 1: hum (gauge), 2: chart_aht (suhu+hum)\n// 3: mq2 (gauge+chart), 4: sonic (gauge+chart)\n// 5: accel_x (gauge), 6: accel_y (gauge), 7: accel_z (gauge), 8: chart_accel\n// 9: stat_aht, 10: stat_mq2, 11: stat_sonic, 12: stat_mma\n// 13: fb_r1, 14: fb_r2, 15: fb_pwm, 16: notif_alert\nlet out = new Array(17).fill(null);\n\nif (t.endsWith('/suhu')) {\n    out[0] = { payload: val };\n    out[2] = { topic: 'Suhu (°C)', payload: val };\n    if (val > 35.0) {\n        out[16] = { topic: '⚠️ PERINGATAN SUHU TINGGI', payload: 'Suhu AHT10 mencapai ' + val.toFixed(1) + ' °C!' };\n    }\n} else if (t.endsWith('/kelembaban')) {\n    out[1] = { payload: val };\n    out[2] = { topic: 'Kelembapan (%RH)', payload: val };\n} else if (t.endsWith('/asap')) {\n    out[3] = { topic: 'Gas MQ-2 (ADC)', payload: val };\n    if (val > 2800) {\n        out[16] = { topic: '🚨 BAHAYA GAS / ASAP', payload: 'Kadar MQ-2 mencapai ' + val + ' ADC!' };\n    }\n} else if (t.endsWith('/jarak')) {\n    out[4] = { topic: 'Jarak (cm)', payload: val };\n} else if (t.endsWith('/accel_x')) {\n    out[5] = { payload: val };\n    out[8] = { topic: 'Sumbu X (g)', payload: val };\n} else if (t.endsWith('/accel_y')) {\n    out[6] = { payload: val };\n    out[8] = { topic: 'Sumbu Y (g)', payload: val };\n} else if (t.endsWith('/accel_z')) {\n    out[7] = { payload: val };\n    out[8] = { topic: 'Sumbu Z (g)', payload: val };\n} else if (t.endsWith('/status_aht')) {\n    out[9] = { payload: formatSensorStatus(val) };\n} else if (t.endsWith('/status_mq2')) {\n    out[10] = { payload: formatSensorStatus(val) };\n} else if (t.endsWith('/status_sonic')) {\n    out[11] = { payload: formatSensorStatus(val) };\n} else if (t.endsWith('/status_mma')) {\n    out[12] = { payload: formatSensorStatus(val) };\n} else if (t.endsWith('/state_relay1')) {\n    out[13] = { payload: val === 1 ? '⚡ MENYALA (HIGH)' : '⭕ MATI (LOW)' };\n} else if (t.endsWith('/state_relay2')) {\n    out[14] = { payload: val === 1 ? '⚡ MENYALA (HIGH)' : '⭕ MATI (LOW)' };\n} else if (t.endsWith('/state_pwm')) {\n    out[15] = { payload: val + ' / 255 (' + Math.round((val / 255) * 100) + '%)' };\n}\n\nreturn out;",
+        "outputs": 17,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 430,
+        "y": 340,
+        "wires": [
+            [
+                "ui_gauge_suhu"
+            ],
+            [
+                "ui_gauge_hum"
+            ],
+            [
+                "ui_chart_aht"
+            ],
+            [
+                "ui_gauge_mq2",
+                "ui_chart_mq2"
+            ],
+            [
+                "ui_gauge_sonic",
+                "ui_chart_sonic"
+            ],
+            [
+                "ui_gauge_ax"
+            ],
+            [
+                "ui_gauge_ay"
+            ],
+            [
+                "ui_gauge_az"
+            ],
+            [
+                "ui_chart_mma"
+            ],
+            [
+                "ui_txt_stat_aht"
+            ],
+            [
+                "ui_txt_stat_mq2"
+            ],
+            [
+                "ui_txt_stat_sonic"
+            ],
+            [
+                "ui_txt_stat_mma"
+            ],
+            [
+                "ui_txt_fb_r1"
+            ],
+            [
+                "ui_txt_fb_r2"
+            ],
+            [
+                "ui_txt_fb_pwm"
+            ],
+            [
+                "ui_notif_alert"
+            ]
+        ]
+    },
+    {
+        "id": "ui_txt_stat_aht",
+        "type": "ui-text",
+        "z": "tab_elka_catppuccin",
+        "group": "grp_aht10",
+        "order": 1,
+        "width": 4,
+        "height": 1,
+        "name": "Status AHT10",
+        "label": "📡 Status Sensor:",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": true,
+        "font": "",
+        "fontSize": 14,
+        "color": "#cdd6f4",
+        "wrapText": false,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 800,
+        "y": 60,
+        "wires": []
+    },
+    {
+        "id": "ui_sw_aht",
+        "type": "ui-switch",
+        "z": "tab_elka_catppuccin",
+        "name": "Saklar AHT10",
+        "label": "🔌 Power",
+        "group": "grp_aht10",
+        "order": 2,
+        "width": 2,
+        "height": 1,
+        "passthru": true,
+        "decouple": false,
+        "topic": "esp32gacor/control/sensor/aht",
+        "topicType": "str",
+        "style": "",
+        "className": "",
+        "layout": "row-spread",
+        "clickableArea": "line",
+        "onvalue": "1",
+        "onvalueType": "str",
+        "onicon": "sensors",
+        "oncolor": "#a6e3a1",
+        "offvalue": "0",
+        "offvalueType": "str",
+        "officon": "sensors_off",
+        "offcolor": "#6c7086",
+        "x": 630,
+        "y": 1060,
+        "wires": [
+            [
+                "mqtt_out_control"
+            ]
+        ]
+    },
+    {
+        "id": "ui_gauge_suhu",
+        "type": "ui-gauge",
+        "z": "tab_elka_catppuccin",
+        "name": "Gauge Suhu",
+        "group": "grp_aht10",
+        "order": 3,
+        "value": "payload",
+        "valueType": "msg",
+        "width": 3,
+        "height": 4,
+        "gtype": "gauge-34",
+        "gstyle": "needle",
+        "title": "🌡️ Suhu Ruang",
+        "alwaysShowTitle": true,
+        "floatingTitlePosition": "top-left",
+        "units": "°C",
+        "icon": "",
+        "prefix": "",
+        "suffix": "",
+        "segments": [
+            {
+                "from": 0,
+                "color": "#89b4fa",
+                "text": "Dingin",
+                "textType": "label"
+            },
+            {
+                "from": 24,
+                "color": "#a6e3a1",
+                "text": "Normal",
+                "textType": "label"
+            },
+            {
+                "from": 33,
+                "color": "#f38ba8",
+                "text": "Panas",
+                "textType": "label"
+            }
+        ],
+        "min": 0,
+        "max": 60,
+        "sizeThickness": 20,
+        "sizeGap": 4,
+        "sizeKeyThickness": 8,
+        "styleRounded": true,
+        "styleGlow": true,
+        "className": "",
+        "x": 790,
+        "y": 100,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "ui_gauge_hum",
+        "type": "ui-gauge",
+        "z": "tab_elka_catppuccin",
+        "name": "Gauge Kelembapan",
+        "group": "grp_aht10",
+        "order": 4,
+        "value": "payload",
+        "valueType": "msg",
+        "width": 3,
+        "height": 4,
+        "gtype": "gauge-34",
+        "gstyle": "needle",
+        "title": "💧 Kelembapan",
+        "alwaysShowTitle": true,
+        "floatingTitlePosition": "top-left",
+        "units": "%RH",
+        "icon": "",
+        "prefix": "",
+        "suffix": "",
+        "segments": [
+            {
+                "from": 0,
+                "color": "#f9e2af",
+                "text": "Kering",
+                "textType": "label"
+            },
+            {
+                "from": 35,
+                "color": "#94e2d5",
+                "text": "Ideal",
+                "textType": "label"
+            },
+            {
+                "from": 75,
+                "color": "#89b4fa",
+                "text": "Lembap",
+                "textType": "label"
+            }
+        ],
+        "min": 0,
+        "max": 100,
+        "sizeThickness": 20,
+        "sizeGap": 4,
+        "sizeKeyThickness": 8,
+        "styleRounded": true,
+        "styleGlow": true,
+        "className": "",
+        "x": 810,
+        "y": 140,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "ui_chart_aht",
+        "type": "ui-chart",
+        "z": "tab_elka_catppuccin",
+        "group": "grp_aht10",
+        "name": "Grafik AHT10",
+        "label": "📈 Tren Suhu & Kelembapan Real-Time",
+        "order": 5,
+        "chartType": "line",
+        "category": "topic",
+        "categoryType": "msg",
+        "xAxisLabel": "Waktu",
+        "xAxisProperty": "",
+        "xAxisPropertyType": "timestamp",
+        "xAxisType": "time",
+        "xAxisFormat": "",
+        "xAxisFormatType": "auto",
+        "xmin": "",
+        "xmax": "",
+        "yAxisLabel": "Nilai",
+        "yAxisProperty": "payload",
+        "yAxisPropertyType": "msg",
+        "ymin": 0,
+        "ymax": 100,
+        "bins": 10,
+        "action": "append",
+        "stackSeries": false,
+        "pointShape": "circle",
+        "pointRadius": 3,
+        "showLegend": true,
+        "removeOlder": "5",
+        "removeOlderUnit": "60",
+        "removeOlderPoints": "200",
+        "colors": [
+            "#f38ba8",
+            "#89b4fa",
+            "#a6e3a1"
+        ],
+        "textColor": [
+            "#cdd6f4"
+        ],
+        "textColorDefault": false,
+        "gridColor": [
+            "#313244"
+        ],
+        "gridColorDefault": false,
+        "width": 6,
+        "height": 5,
+        "className": "",
+        "interpolation": "linear",
+        "x": 790,
+        "y": 180,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "ui_txt_stat_mq2",
+        "type": "ui-text",
+        "z": "tab_elka_catppuccin",
+        "group": "grp_mq2",
+        "order": 1,
+        "width": 4,
+        "height": 1,
+        "name": "Status MQ2",
+        "label": "📡 Status Sensor:",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": true,
+        "font": "",
+        "fontSize": 14,
+        "color": "#cdd6f4",
+        "wrapText": false,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 790,
+        "y": 220,
+        "wires": []
+    },
+    {
+        "id": "ui_sw_mq2",
+        "type": "ui-switch",
+        "z": "tab_elka_catppuccin",
+        "name": "Saklar MQ2",
+        "label": "🔌 Power",
+        "group": "grp_mq2",
+        "order": 2,
+        "width": 2,
+        "height": 1,
+        "passthru": true,
+        "decouple": false,
+        "topic": "esp32gacor/control/sensor/mq2",
+        "topicType": "str",
+        "style": "",
+        "className": "",
+        "layout": "row-spread",
+        "clickableArea": "line",
+        "onvalue": "1",
+        "onvalueType": "str",
+        "onicon": "sensors",
+        "oncolor": "#a6e3a1",
+        "offvalue": "0",
+        "offvalueType": "str",
+        "officon": "sensors_off",
+        "offcolor": "#6c7086",
+        "x": 620,
+        "y": 1100,
+        "wires": [
+            [
+                "mqtt_out_control"
+            ]
+        ]
+    },
+    {
+        "id": "ui_gauge_mq2",
+        "type": "ui-gauge",
+        "z": "tab_elka_catppuccin",
+        "name": "Gauge MQ2",
+        "group": "grp_mq2",
+        "order": 3,
+        "value": "payload",
+        "valueType": "msg",
+        "width": 6,
+        "height": 4,
+        "gtype": "gauge-34",
+        "gstyle": "needle",
+        "title": "💨 Konsentrasi Gas / Asap (MQ-2)",
+        "alwaysShowTitle": true,
+        "floatingTitlePosition": "top-left",
+        "units": "ADC",
+        "icon": "",
+        "prefix": "",
+        "suffix": "",
+        "segments": [
+            {
+                "from": 0,
+                "color": "#a6e3a1",
+                "text": "Aman",
+                "textType": "label"
+            },
+            {
+                "from": 1800,
+                "color": "#f9e2af",
+                "text": "Waspada",
+                "textType": "label"
+            },
+            {
+                "from": 2800,
+                "color": "#f38ba8",
+                "text": "Bahaya",
+                "textType": "label"
+            }
+        ],
+        "min": 0,
+        "max": 4095,
+        "sizeThickness": 22,
+        "sizeGap": 4,
+        "sizeKeyThickness": 10,
+        "styleRounded": true,
+        "styleGlow": true,
+        "className": "",
+        "x": 790,
+        "y": 260,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "ui_chart_mq2",
+        "type": "ui-chart",
+        "z": "tab_elka_catppuccin",
+        "group": "grp_mq2",
+        "name": "Grafik MQ2",
+        "label": "📈 Tren Historis Kadar Gas MQ-2 (250ms)",
+        "order": 4,
+        "chartType": "line",
+        "category": "topic",
+        "categoryType": "msg",
+        "xAxisLabel": "Waktu",
+        "xAxisProperty": "",
+        "xAxisPropertyType": "timestamp",
+        "xAxisType": "time",
+        "xAxisFormat": "",
+        "xAxisFormatType": "auto",
+        "xmin": "",
+        "xmax": "",
+        "yAxisLabel": "ADC (12-bit)",
+        "yAxisProperty": "payload",
+        "yAxisPropertyType": "msg",
+        "ymin": 0,
+        "ymax": 4095,
+        "bins": 10,
+        "action": "append",
+        "stackSeries": false,
+        "pointShape": "false",
+        "pointRadius": 2,
+        "showLegend": false,
+        "removeOlder": "2",
+        "removeOlderUnit": "60",
+        "removeOlderPoints": "300",
+        "colors": [
+            "#fab387"
+        ],
+        "textColor": [
+            "#cdd6f4"
+        ],
+        "textColorDefault": false,
+        "gridColor": [
+            "#313244"
+        ],
+        "gridColorDefault": false,
+        "width": 6,
+        "height": 5,
+        "className": "",
+        "interpolation": "bezier",
+        "x": 790,
+        "y": 300,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "ui_txt_stat_sonic",
+        "type": "ui-text",
+        "z": "tab_elka_catppuccin",
+        "group": "grp_sonic",
+        "order": 1,
+        "width": 4,
+        "height": 1,
+        "name": "Status Ultrasonic",
+        "label": "📡 Status Sensor:",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": true,
+        "font": "",
+        "fontSize": 14,
+        "color": "#cdd6f4",
+        "wrapText": false,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 810,
+        "y": 340,
+        "wires": []
+    },
+    {
+        "id": "ui_sw_sonic",
+        "type": "ui-switch",
+        "z": "tab_elka_catppuccin",
+        "name": "Saklar Ultrasonic",
+        "label": "🔌 Power",
+        "group": "grp_sonic",
+        "order": 2,
+        "width": 2,
+        "height": 1,
+        "passthru": true,
+        "decouple": false,
+        "topic": "esp32gacor/control/sensor/sonic",
+        "topicType": "str",
+        "style": "",
+        "className": "",
+        "layout": "row-spread",
+        "clickableArea": "line",
+        "onvalue": "1",
+        "onvalueType": "str",
+        "onicon": "sensors",
+        "oncolor": "#a6e3a1",
+        "offvalue": "0",
+        "offvalueType": "str",
+        "officon": "sensors_off",
+        "offcolor": "#6c7086",
+        "x": 640,
+        "y": 1140,
+        "wires": [
+            [
+                "mqtt_out_control"
+            ]
+        ]
+    },
+    {
+        "id": "ui_gauge_sonic",
+        "type": "ui-gauge",
+        "z": "tab_elka_catppuccin",
+        "name": "Gauge Ultrasonic",
+        "group": "grp_sonic",
+        "order": 3,
+        "value": "payload",
+        "valueType": "msg",
+        "width": 6,
+        "height": 4,
+        "gtype": "gauge-34",
+        "gstyle": "needle",
+        "title": "📏 Jarak Objek Ultrasonic",
+        "alwaysShowTitle": true,
+        "floatingTitlePosition": "top-left",
+        "units": "cm",
+        "icon": "",
+        "prefix": "",
+        "suffix": "",
+        "segments": [
+            {
+                "from": "0",
+                "color": "#f38ba8",
+                "text": "Terlalu Dekat",
+                "textType": "label"
+            },
+            {
+                "from": "25",
+                "color": "#f9e2af",
+                "text": "Menengah",
+                "textType": "label"
+            },
+            {
+                "from": "100",
+                "color": "#a6e3a1",
+                "text": "Aman",
+                "textType": "label"
+            }
+        ],
+        "min": 0,
+        "max": "100",
+        "sizeThickness": 22,
+        "sizeGap": 4,
+        "sizeKeyThickness": 10,
+        "styleRounded": true,
+        "styleGlow": true,
+        "className": "",
+        "x": 810,
+        "y": 380,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "ui_chart_sonic",
+        "type": "ui-chart",
+        "z": "tab_elka_catppuccin",
+        "group": "grp_sonic",
+        "name": "Grafik Ultrasonic",
+        "label": "📈 Tren Historis Jarak Objek (cm)",
+        "order": 4,
+        "chartType": "line",
+        "category": "topic",
+        "categoryType": "msg",
+        "xAxisLabel": "Waktu",
+        "xAxisProperty": "",
+        "xAxisPropertyType": "timestamp",
+        "xAxisType": "time",
+        "xAxisFormat": "",
+        "xAxisFormatType": "auto",
+        "xmin": "",
+        "xmax": "",
+        "yAxisLabel": "Jarak (cm)",
+        "yAxisProperty": "payload",
+        "yAxisPropertyType": "msg",
+        "ymin": 0,
+        "ymax": "100",
+        "bins": 10,
+        "action": "append",
+        "stackSeries": false,
+        "pointShape": "circle",
+        "pointRadius": 3,
+        "showLegend": false,
+        "removeOlder": "5",
+        "removeOlderUnit": "60",
+        "removeOlderPoints": "200",
+        "colors": [
+            "#94e2d5",
+            "#000000",
+            "#000000",
+            "#000000",
+            "#000000",
+            "#000000",
+            "#000000",
+            "#000000",
+            "#000000"
+        ],
+        "textColor": [
+            "#cdd6f4"
+        ],
+        "textColorDefault": false,
+        "gridColor": [
+            "#313244"
+        ],
+        "gridColorDefault": false,
+        "width": 6,
+        "height": 5,
+        "className": "",
+        "interpolation": "linear",
+        "x": 810,
+        "y": 420,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "ui_txt_stat_mma",
+        "type": "ui-text",
+        "z": "tab_elka_catppuccin",
+        "group": "grp_mma",
+        "order": 1,
+        "width": 4,
+        "height": 1,
+        "name": "Status MMA845x",
+        "label": "📡 Status Sensor:",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": true,
+        "font": "",
+        "fontSize": 14,
+        "color": "#cdd6f4",
+        "wrapText": false,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 810,
+        "y": 460,
+        "wires": []
+    },
+    {
+        "id": "ui_sw_mma",
+        "type": "ui-switch",
+        "z": "tab_elka_catppuccin",
+        "name": "Saklar MMA845x",
+        "label": "🔌 Power",
+        "group": "grp_mma",
+        "order": 2,
+        "width": 2,
+        "height": 1,
+        "passthru": true,
+        "decouple": false,
+        "topic": "esp32gacor/control/sensor/mma",
+        "topicType": "str",
+        "style": "",
+        "className": "",
+        "layout": "row-spread",
+        "clickableArea": "line",
+        "onvalue": "1",
+        "onvalueType": "str",
+        "onicon": "sensors",
+        "oncolor": "#a6e3a1",
+        "offvalue": "0",
+        "offvalueType": "str",
+        "officon": "sensors_off",
+        "offcolor": "#6c7086",
+        "x": 630,
+        "y": 1180,
+        "wires": [
+            [
+                "mqtt_out_control"
+            ]
+        ]
+    },
+    {
+        "id": "ui_gauge_ax",
+        "type": "ui-gauge",
+        "z": "tab_elka_catppuccin",
+        "name": "Gauge Accel X",
+        "group": "grp_mma",
+        "order": 3,
+        "value": "payload",
+        "valueType": "msg",
+        "width": 2,
+        "height": 4,
+        "gtype": "gauge-34",
+        "gstyle": "needle",
+        "title": "📐 Sumbu X",
+        "alwaysShowTitle": true,
+        "floatingTitlePosition": "top-left",
+        "units": "g",
+        "icon": "",
+        "prefix": "",
+        "suffix": "",
+        "segments": [
+            {
+                "from": -2,
+                "color": "#f38ba8",
+                "text": "-X",
+                "textType": "label"
+            },
+            {
+                "from": -0.5,
+                "color": "#cba6f7",
+                "text": "Stabil",
+                "textType": "label"
+            },
+            {
+                "from": 0.5,
+                "color": "#f38ba8",
+                "text": "+X",
+                "textType": "label"
+            }
+        ],
+        "min": -2,
+        "max": 2,
+        "sizeThickness": 16,
+        "sizeGap": 3,
+        "sizeKeyThickness": 6,
+        "styleRounded": true,
+        "styleGlow": true,
+        "className": "",
+        "x": 800,
+        "y": 500,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "ui_gauge_ay",
+        "type": "ui-gauge",
+        "z": "tab_elka_catppuccin",
+        "name": "Gauge Accel Y",
+        "group": "grp_mma",
+        "order": 4,
+        "value": "payload",
+        "valueType": "msg",
+        "width": 2,
+        "height": 4,
+        "gtype": "gauge-34",
+        "gstyle": "needle",
+        "title": "📐 Sumbu Y",
+        "alwaysShowTitle": true,
+        "floatingTitlePosition": "top-left",
+        "units": "g",
+        "icon": "",
+        "prefix": "",
+        "suffix": "",
+        "segments": [
+            {
+                "from": -2,
+                "color": "#f9e2af",
+                "text": "-Y",
+                "textType": "label"
+            },
+            {
+                "from": -0.5,
+                "color": "#89b4fa",
+                "text": "Stabil",
+                "textType": "label"
+            },
+            {
+                "from": 0.5,
+                "color": "#f9e2af",
+                "text": "+Y",
+                "textType": "label"
+            }
+        ],
+        "min": -2,
+        "max": 2,
+        "sizeThickness": 16,
+        "sizeGap": 3,
+        "sizeKeyThickness": 6,
+        "styleRounded": true,
+        "styleGlow": true,
+        "className": "",
+        "x": 800,
+        "y": 540,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "ui_gauge_az",
+        "type": "ui-gauge",
+        "z": "tab_elka_catppuccin",
+        "name": "Gauge Accel Z",
+        "group": "grp_mma",
+        "order": 5,
+        "value": "payload",
+        "valueType": "msg",
+        "width": 2,
+        "height": 4,
+        "gtype": "gauge-34",
+        "gstyle": "needle",
+        "title": "📐 Sumbu Z",
+        "alwaysShowTitle": true,
+        "floatingTitlePosition": "top-left",
+        "units": "g",
+        "icon": "",
+        "prefix": "",
+        "suffix": "",
+        "segments": [
+            {
+                "from": -2,
+                "color": "#fab387",
+                "text": "-Z",
+                "textType": "label"
+            },
+            {
+                "from": -0.5,
+                "color": "#a6e3a1",
+                "text": "1g",
+                "textType": "label"
+            },
+            {
+                "from": 1.3,
+                "color": "#fab387",
+                "text": "+Z",
+                "textType": "label"
+            }
+        ],
+        "min": -2,
+        "max": 2,
+        "sizeThickness": 16,
+        "sizeGap": 3,
+        "sizeKeyThickness": 6,
+        "styleRounded": true,
+        "styleGlow": true,
+        "className": "",
+        "x": 800,
+        "y": 580,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "ui_chart_mma",
+        "type": "ui-chart",
+        "z": "tab_elka_catppuccin",
+        "group": "grp_mma",
+        "name": "Grafik MMA845x",
+        "label": "📈 Getaran 3-Axis Real-Time (X, Y, Z)",
+        "order": 6,
+        "chartType": "line",
+        "category": "topic",
+        "categoryType": "msg",
+        "xAxisLabel": "Waktu",
+        "xAxisProperty": "",
+        "xAxisPropertyType": "timestamp",
+        "xAxisType": "time",
+        "xAxisFormat": "",
+        "xAxisFormatType": "auto",
+        "xmin": "",
+        "xmax": "",
+        "yAxisLabel": "Akselerasi (g)",
+        "yAxisProperty": "payload",
+        "yAxisPropertyType": "msg",
+        "ymin": -2,
+        "ymax": 2,
+        "bins": 10,
+        "action": "append",
+        "stackSeries": false,
+        "pointShape": "false",
+        "pointRadius": 2,
+        "showLegend": true,
+        "removeOlder": "1",
+        "removeOlderUnit": "60",
+        "removeOlderPoints": "200",
+        "colors": [
+            "#cba6f7",
+            "#89b4fa",
+            "#a6e3a1"
+        ],
+        "textColor": [
+            "#cdd6f4"
+        ],
+        "textColorDefault": false,
+        "gridColor": [
+            "#313244"
+        ],
+        "gridColorDefault": false,
+        "width": 6,
+        "height": 5,
+        "className": "",
+        "interpolation": "linear",
+        "x": 810,
+        "y": 620,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "ui_sw_relay1",
+        "type": "ui-switch",
+        "z": "tab_elka_catppuccin",
+        "name": "Kontrol Relay 1",
+        "label": "💡 Saklar Relay 1 (GPIO 25)",
+        "group": "grp_aktuator",
+        "order": 1,
+        "width": 2,
+        "height": 1,
+        "passthru": false,
+        "decouple": false,
+        "topic": "esp32gacor/control/aktuator/relay1",
+        "topicType": "str",
+        "style": "",
+        "className": "",
+        "layout": "row-spread",
+        "clickableArea": "line",
+        "onvalue": "1",
+        "onvalueType": "str",
+        "onicon": "power",
+        "oncolor": "#cba6f7",
+        "offvalue": "0",
+        "offvalueType": "str",
+        "officon": "power_off",
+        "offcolor": "#6c7086",
+        "x": 630,
+        "y": 1240,
+        "wires": [
+            [
+                "mqtt_out_control"
+            ]
+        ]
+    },
+    {
+        "id": "ui_txt_fb_r1",
+        "type": "ui-text",
+        "z": "tab_elka_catppuccin",
+        "group": "grp_aktuator",
+        "order": 2,
+        "width": 2,
+        "height": 1,
+        "name": "Feedback Relay 1",
+        "label": "Pin 25:",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": true,
+        "font": "",
+        "fontSize": 14,
+        "color": "#a6e3a1",
+        "wrapText": false,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 810,
+        "y": 660,
+        "wires": []
+    },
+    {
+        "id": "ui_sw_relay2",
+        "type": "ui-switch",
+        "z": "tab_elka_catppuccin",
+        "name": "Kontrol Relay 2",
+        "label": "🔔 Saklar Relay 2 (GPIO 26)",
+        "group": "grp_aktuator",
+        "order": 3,
+        "width": 2,
+        "height": 1,
+        "passthru": false,
+        "decouple": false,
+        "topic": "esp32gacor/control/aktuator/relay2",
+        "topicType": "str",
+        "style": "",
+        "className": "",
+        "layout": "row-spread",
+        "clickableArea": "line",
+        "onvalue": "1",
+        "onvalueType": "str",
+        "onicon": "power",
+        "oncolor": "#cba6f7",
+        "offvalue": "0",
+        "offvalueType": "str",
+        "officon": "power_off",
+        "offcolor": "#6c7086",
+        "x": 630,
+        "y": 1280,
+        "wires": [
+            [
+                "mqtt_out_control"
+            ]
+        ]
+    },
+    {
+        "id": "ui_txt_fb_r2",
+        "type": "ui-text",
+        "z": "tab_elka_catppuccin",
+        "group": "grp_aktuator",
+        "order": 4,
+        "width": 2,
+        "height": 1,
+        "name": "Feedback Relay 2",
+        "label": "Pin 26:",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": true,
+        "font": "",
+        "fontSize": 14,
+        "color": "#a6e3a1",
+        "wrapText": false,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 810,
+        "y": 700,
+        "wires": []
+    },
+    {
+        "id": "ui_slider_pwm",
+        "type": "ui-slider",
+        "z": "tab_elka_catppuccin",
+        "group": "grp_aktuator",
+        "name": "Slider PWM GPIO 27",
+        "label": "🌀 Duty Cycle PWM (GPIO 27)",
+        "tooltip": "Geser nilai PWM 0 - 255",
+        "order": 5,
+        "width": 2,
+        "height": 1,
+        "passthru": false,
+        "outs": "end",
+        "topic": "esp32gacor/control/aktuator/pwm",
+        "topicType": "str",
+        "thumbLabel": "true",
+        "showTicks": "false",
+        "min": 0,
+        "max": 255,
+        "step": 1,
+        "className": "",
+        "iconPrepend": "",
+        "iconAppend": "",
+        "color": "#cba6f7",
+        "colorTrack": "#45475a",
+        "colorThumb": "#cba6f7",
+        "x": 640,
+        "y": 1320,
+        "wires": [
+            [
+                "mqtt_out_control"
+            ]
+        ]
+    },
+    {
+        "id": "ui_txt_fb_pwm",
+        "type": "ui-text",
+        "z": "tab_elka_catppuccin",
+        "group": "grp_aktuator",
+        "order": 6,
+        "width": 2,
+        "height": 1,
+        "name": "Feedback PWM",
+        "label": "Aktual PWM:",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": true,
+        "font": "",
+        "fontSize": 14,
+        "color": "#f9e2af",
+        "wrapText": false,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 800,
+        "y": 740,
+        "wires": []
+    },
+    {
+        "id": "ui_notif_alert",
+        "type": "ui-notification",
+        "z": "tab_elka_catppuccin",
+        "ui": "c94615b4ff7ffe30",
+        "position": "top right",
+        "colorDefault": false,
+        "color": "#f38ba8",
+        "displayTime": "5",
+        "showCountdown": true,
+        "outputs": 1,
+        "allowDismiss": true,
+        "dismissText": "Tutup",
+        "allowConfirm": false,
+        "confirmText": "OK",
+        "raw": false,
+        "className": "",
+        "name": "Notifikasi Bahaya Sensor",
+        "x": 830,
+        "y": 780,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "mqtt_out_control",
+        "type": "mqtt out",
+        "z": "tab_elka_catppuccin",
+        "name": "Publish Perintah Kontrol ke ESP32",
+        "topic": "",
+        "qos": "0",
+        "retain": "true",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "broker_esp32_elka",
+        "x": 970,
+        "y": 1180,
+        "wires": []
+    },
+    {
+        "id": "inject_init_sensors",
+        "type": "inject",
+        "z": "tab_elka_catppuccin",
+        "name": "Set Default Semua Saklar Sensor ON",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "0.5",
+        "topic": "",
+        "payload": "1",
+        "payloadType": "str",
+        "x": 150,
+        "y": 1200,
+        "wires": [
+            [
+                "ui_sw_aht",
+                "ui_sw_mq2",
+                "ui_sw_sonic",
+                "ui_sw_mma"
+            ]
+        ]
+    },
+    {
+        "id": "c94615b4ff7ffe30",
+        "type": "ui-base",
+        "name": "Ui gacor",
+        "path": "/dashboard",
+        "appIcon": "IotPensKel4",
+        "includeClientData": true,
+        "acceptsClientConfig": [
+            "ui-notification",
+            "ui-control"
+        ],
+        "showPathInSidebar": false,
+        "headerContent": "page",
+        "navigationStyle": "default",
+        "titleBarStyle": "default",
+        "showReconnectNotification": true,
+        "notificationDisplayTime": 1,
+        "showDisconnectNotification": true,
+        "allowInstall": true
+    },
+    {
+        "id": "broker_esp32_elka",
+        "type": "mqtt-broker",
+        "name": "Mosquitto Broker ESP32 (192.168.137.1)",
+        "broker": "192.168.137.1",
+        "port": 1883,
+        "clientid": "NodeRED_Elka_Catppuccin",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": 4,
+        "keepalive": 60,
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "grp_aht10",
+        "type": "ui-group",
+        "name": "🌡️ Modul Sensor AHT10 (Suhu & Kelembapan I2C)",
+        "page": "ui_page_elka",
+        "width": 6,
+        "height": "2",
+        "order": 1,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default",
+        "tab": ""
+    },
+    {
+        "id": "grp_mq2",
+        "type": "ui-group",
+        "name": "💨 Modul Sensor Gas & Asap MQ-2 (ADC GPIO 34)",
+        "page": "ui_page_elka",
+        "width": 6,
+        "height": "2",
+        "order": 2,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default",
+        "tab": ""
+    },
+    {
+        "id": "grp_sonic",
+        "type": "ui-group",
+        "name": "📏 Modul Sensor Jarak Ultrasonic (UART2)",
+        "page": "ui_page_elka",
+        "width": 6,
+        "height": "2",
+        "order": 3,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default",
+        "tab": ""
+    },
+    {
+        "id": "grp_mma",
+        "type": "ui-group",
+        "name": "📐 Modul Akselerometer 3-Axis MMA845x (I2C 250ms)",
+        "page": "ui_page_elka",
+        "width": 6,
+        "height": "2",
+        "order": 4,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default",
+        "tab": ""
+    },
+    {
+        "id": "grp_aktuator",
+        "type": "ui-group",
+        "name": "⚙️ Panel Kontrol & Feedback Aktuator (GPIO 25, 26, 27)",
+        "page": "ui_page_elka",
+        "width": 12,
+        "height": "2",
+        "order": 5,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default",
+        "tab": ""
+    },
+    {
+        "id": "ui_page_elka",
+        "type": "ui-page",
+        "name": "ELKA PENS - Smart Telemetry & Control",
+        "ui": "c94615b4ff7ffe30",
+        "path": "/telemetry",
+        "icon": "dashboard",
+        "layout": "grid",
+        "theme": "ui_theme_catppuccin",
+        "breakpoints": [
+            {
+                "name": "Default",
+                "px": "0",
+                "cols": "3"
+            },
+            {
+                "name": "Tablet",
+                "px": "576",
+                "cols": "6"
+            },
+            {
+                "name": "Small Desktop",
+                "px": "768",
+                "cols": "9"
+            },
+            {
+                "name": "Desktop",
+                "px": "1024",
+                "cols": "12"
+            }
+        ],
+        "tabs": [],
+        "order": 2,
+        "className": "",
+        "visible": "true",
+        "disabled": "false"
+    },
+    {
+        "id": "ui_theme_catppuccin",
+        "type": "ui-theme",
+        "name": "Catppuccin Mocha",
+        "colors": {
+            "surface": "#181825",
+            "primary": "#cba6f7",
+            "bgPage": "#11111b",
+            "groupBg": "#1e1e2e",
+            "groupOutline": "#45475a"
+        },
+        "sizes": {
+            "density": "comfortable",
+            "pagePadding": "16px",
+            "groupGap": "16px",
+            "groupBorderRadius": "16px",
+            "widgetGap": "10px"
+        }
+    },
+    {
+        "id": "8d3c62518daa1225",
+        "type": "global-config",
+        "env": [],
+        "modules": {
+            "@flowfuse/node-red-dashboard": "1.34.1"
+        }
+    }
+]
